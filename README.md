@@ -4,7 +4,7 @@ Welcome to the lightweight Server Configuration Managment system, your lightweig
 We offer a flexibly extensible way to define your target server's state in configuration ... and then make it happen!
 
 Now, you probably think "That sounds great, so where's the documentation to get me started?".
-Well ... you found a pretty much a stub. Still setting up here.
+Well ... you found what amounts to being a stub page. Still setting up here.
 
 Mind you, we _will_ be documented before finishing up.
 Just not quite there yet ...
