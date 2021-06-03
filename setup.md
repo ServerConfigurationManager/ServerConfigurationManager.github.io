@@ -99,12 +99,12 @@ For manageability reasons, it is strongly recommended to put your Content Path i
 
 > Example? Prebuilt Actions/Targets?
 
-In order to simplify the access we have created a [sample structure on Github](https://github.com/ServerConfigurationManager.github.io/content).
+In order to simplify the access we have created a [sample structure on Github](https://github.com/ServerConfigurationManager/ServerConfigurationManager.github.io/tree/master/content).
 It contains a set of [pre-defined Actions](default-actions.html) to simplify getting started.
 
 ## Deploy the launcher code to the target machines
 
-Once ready, you need to get the managed systems to run the [launcher script](https://github.com/ServerConfigurationManager.github.io/blob/master/code/launcher.ps1).
+Once ready, you need to get the managed systems to run the [launcher script](https://github.com/ServerConfigurationManager/ServerConfigurationManager.github.io/blob/master/code/launcher.ps1).
 In a domain environment, this could be placed in the SYSVOL share and execution deployed as a scheduled task.
 Otherwise adding it to the OS image or deploying it in any other way to the machine will do.
 
