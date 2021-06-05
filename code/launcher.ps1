@@ -271,14 +271,47 @@ function Write-Log {
     $eventlog.Source = $Source
     $eventlog.WriteEntry($Message, $Type, $EventId)
 }
+
+function Test-WebContentPath {
+    [CmdletBinding()]
+    param (
+        [string]
+        $Path
+    )
+
+    $Path -match '^http|^https'
+}
+
+function Install-WebContent {
+    [CmdletBinding()]
+    param (
+        [string]
+        $Path
+    )
+
+    $basePath = $env:TEMP
+    if (-not $basePath) { $basePath = [System.Environment]::GetFolderPath("temp") }
+    if (-not $basePath) { $basePath = $HOME }
+
+    $archivePath = Join-Path -Path $basePath -ChildPath "contentPath_$(Get-Random).zip"
+    $newContentPath = Join-Path -Path $basePath -ChildPath "content_$(Get-Random)"
+    $null = New-Item -Path $newContentPath -Force -ItemType Directory    
+    Invoke-WebRequest -Uri $Path -OutFile $archivePath
+    Expand-Archive -Path $archivePath -DestinationPath $newContentPath
+    Remove-Item $archivePath
+    $newContentPath
+}
 #endregion Functions
 
 # Setup Logging
 Set-Logging
 Write-Log -Message 'Starting Launcher' -EventId 999
+$isWebContentPath = Test-WebContentPath -Path $ContentPath
+if ($isWebContentPath) {$ContentPath = Install-WebContent -Path $ContentPath }
 
 Set-SourceRepository -RepositoryName $RepositoryName -RepositoryPath $RepositoryPath -ContentPath $ContentPath -UsePSGet:$UsePSGet
 Install-ServerConfigurationManager -RepositoryName $RepositoryName
-Invoke-ServerConfiguration -RepositoryName $RepositoryName -ContentPath $ContentPath
+try { Invoke-ServerConfiguration -RepositoryName $RepositoryName -ContentPath $ContentPath }
+finally { if ($isWebContentPath) { Remove-Item -Path $ContentPath -Force -Recurse -ErrorAction Ignore }}
 
 Write-Log -Message 'Launcher Execution Completed' -EventId 1001
