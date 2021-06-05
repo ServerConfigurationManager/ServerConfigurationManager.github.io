@@ -6,3 +6,4 @@ These actions are provided by default if you use our [sample content structure o
 
 |[Folder](defaultactions/Folder.html)|1.0.0|Ensures a folder exists.|
 |[Jea Endpoint](defaultactions/Jea_Endpoint.html)|1.0.0|Deploys and configures a JEA endpoint on the local computer.|
+|[Module](defaultactions/Module.html)|1.0.0|Ensures a specified module is installed on the target server.|
