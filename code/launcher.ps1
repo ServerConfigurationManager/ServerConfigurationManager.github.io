@@ -218,6 +218,8 @@ function Set-Logging {
 
     )
 
+    if ($PSVersionTable.PSVersion -ge 6 -and -not $IsWindows) { return }
+
     try {
         $eventlog = [System.Diagnostics.EventLog]::GetEventLogs().Where{ $_.Log -eq "ServerConfigurationManager" }
         if ($eventlog) { return }
@@ -267,9 +269,16 @@ function Write-Log {
         $Source = 'ScmLauncher'
     )
 
-    $eventlog = [System.Diagnostics.EventLog]::GetEventLogs().Where{ $_.Log -eq "ServerConfigurationManager" }[0]
-    $eventlog.Source = $Source
-    $eventlog.WriteEntry($Message, $Type, $EventId)
+    if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
+        $eventlog = [System.Diagnostics.EventLog]::GetEventLogs().Where{ $_.Log -eq "ServerConfigurationManager" }[0]
+        $eventlog.Source = $Source
+        $eventlog.WriteEntry($Message, $Type, $EventId)
+    }
+    else {
+        foreach ($line in $Message -split "`n") {
+            logger "$Source $Type $EventId $line"
+        }
+    }
 }
 
 function Test-WebContentPath {
