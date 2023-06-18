@@ -81,17 +81,14 @@ SOFTWARE.
 #>
 [CmdletBinding()]
 param (
-    [Parameter(Mandatory = $true)]
     [string]
-    $RepositoryName,
+    $RepositoryName = '%RepositoryName%',
 
-    [Parameter(Mandatory = $true)]
     [string]
-    $RepositoryPath,
+    $RepositoryPath = '%RepositoryPath%',
 
-    [Parameter(Mandatory = $true)]
     [string]
-    $ContentPath,
+    $ContentPath = '%ContentPath%',
 
     [switch]
     $UsePSGet
