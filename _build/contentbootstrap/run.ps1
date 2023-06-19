@@ -7,7 +7,10 @@ param (
 	$RepositoryPath = (Read-Host "Insert full path to the PSRepository clients will use. They will either use anonymous or windows authentication for access."),
 
 	[string]
-	$RepositoryName = (Read-Host "Specify the name of the repository to use. The repository in the path previously specified will be registered under this name.")
+	$RepositoryName = (Read-Host "Specify the name of the repository to use. The repository in the path previously specified will be registered under this name."),
+
+	[switch]
+	$NoPublish
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,9 +20,7 @@ trap {
 }
 
 #region Functions
-function Get-UserChoice
-{
-
+function Get-UserChoice {
     <#
 	.SYNOPSIS
 		Prompts the user to choose between a set of options.
@@ -127,7 +128,6 @@ function Get-UserChoice
 		
         $Host.UI.PromptForChoice($Caption, $Message, $choices, $DefaultChoice)
     }
-
 }
 
 function Assert-Path {
@@ -197,7 +197,7 @@ function Install-ScmContent {
 	Copy-Item -Path "$SourceRoot\content\*" -Destination $Path -Recurse -Force
 }
 
-function Install-ScmModules {
+function Install-ScmModule {
 	<#
 	.SYNOPSIS
 		Copies the SCM-related modules to the specified folder.
@@ -213,7 +213,7 @@ function Install-ScmModules {
 		The root path to which the entire "Modules" folder is being copied.
 	
 	.EXAMPLE
-		PS C:\> Install-ScmModules -SourceRoot $PSScriptRoot -Path $ContentRoot
+		PS C:\> Install-ScmModule -SourceRoot $PSScriptRoot -Path $ContentRoot
 
 		Copies the "Modules" folder under the folder containing the current script to the path in $ContentRoot
 	#>
@@ -229,6 +229,86 @@ function Install-ScmModules {
 	)
 
 	Copy-Item -Path "$SourceRoot\Modules" -Destination $Path -Recurse -Force
+}
+
+function Publish-ScmModule {
+	<#
+	.SYNOPSIS
+		Publishes the SCM module to the repository where the launcher script tries to install it from.
+	
+	.DESCRIPTION
+		Publishes the SCM module to the repository where the launcher script tries to install it from.
+		This simplifies module access, but requires write access to the repository.
+		Failure in this step will not fail the entire script!
+	
+	.PARAMETER Path
+		Path to where the content files have been deployed.
+	
+	.PARAMETER RepositoryPath
+		Path to the repository where the modules should be published to.
+	
+	.PARAMETER RepositoryName
+		Name of the repository that the modules should be published to.
+	
+	.EXAMPLE
+		PS C:\> Publish-ScmModule -Path $contentPath -RepositoryName Contoso -RepositoryPath \\contoso.com\itops\powershell\repository
+		
+		Ensures the repository "Contoso" is registered and points at '\\contoso.com\itops\powershell\repository'
+		Then offers to publish ServerConfigurationmanager and Microsoft.PowerShell.PSResourceGet modules to it.
+	#>
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]
+		$Path,
+
+		[Parameter(Mandatory = $true)]
+		[string]
+		$RepositoryPath,
+
+		[Parameter(Mandatory = $true)]
+		[string]
+		$RepositoryName
+	)
+
+	$modulePath = Get-Item -Path "$Path\Modules\Microsoft.PowerShell.PSResourceGet\*\Microsoft.PowerShell.PSResourceGet.psd1" | Select-Object -Last 1
+	Import-Module $modulePath.FullName -Scope Global
+
+	$repository = Get-PSResourceRepository -Name $RepositoryName -ErrorAction Ignore
+	if ($repository -and $repository.Uri.ToString() -ne $RepositoryPath) {
+		$choice = Get-UserChoice -Message "Repository $RepositoryName is already registered for the current user, but points to a path different from the specified path: $($repository.Uri). Should this path be adjusted to $RepositoryPath?" -Options Yes, No
+		if ($choice -eq 1) { return }
+
+		try { Set-PSResourceRepository -Name $RepositoryName -Uri $RepositoryPath -ErrorAction Stop }
+		catch {
+			Write-Warning "Updating repository $RespositoryName failed: $_"
+			return
+		}
+	}
+	elseif(-not $repository) {
+		$choice = Get-UserChoice -Message "Repository $RepositoryName is currently not registered for the current user. Do you want to register it (this is required if you want to publish the SCM module to where the Computers can find it via the launcher deployed later)" -Options Yes, No
+		if ($choice -eq 1) { return }
+
+		try { Register-PSResourceRepository -Name $RepositoryName -Uri $RepositoryPath -Trusted -ErrorAction Stop }
+		catch {
+			Write-Warning "Failed to register $($RepositoryName): $_"
+			return
+		}
+	}
+
+	# At this point, the repository must exist and point at the right location
+	$choice = Get-UserChoice -Message 'Do you want to deploy the ServerConfigurationManager module to the repository (Recommended)' -Options Yes,No
+	if ($choice -eq 0) {
+		$scmPath = Get-Item -Path "$Path\Modules\ServerConfigurationManager\*\ServerConfigurationManager.psd1" | Select-Object -Last 1
+		try { Publish-PSResource -Repository $RepositoryName -Path $scmPath.FullName -ErrorAction Stop }
+		catch { Write-Warning "Error publishing module 'ServerConfigurationmanager': $_" }
+	}
+
+	$choice = Get-UserChoice -Message 'Do you want to deploy the Microsoft.PowerShell.PSResourceGet module to the repository (Optional)' -Options Yes,No
+	if ($choice -eq 0) {
+		try { Publish-PSResource -Repository $RepositoryName -Path $modulePath.FullName -ErrorAction Stop }
+		catch { Write-Warning "Error publishing module 'ServerConfigurationmanager': $_" }
+	}
 }
 
 function Install-ScmLauncher {
@@ -303,5 +383,6 @@ Be sure to deploy a scheduled task (e.g. via Group Policy) that runs it:
 
 Assert-Path -Path $ContentPath
 Install-ScmContent -SourceRoot $PSScriptRoot -Path $ContentPath
-Install-ScmModules -SourceRoot $PSScriptRoot -Path $ContentPath
+Install-ScmModule -SourceRoot $PSScriptRoot -Path $ContentPath
+if (-not $NoPubblish) { Publish-ScmModule -Path $ContentPath -RepositoryPath $RepositoryPath -RepositoryName $RepositoryName }
 Install-ScmLauncher -SourceRoot $PSScriptRoot -Path $ContentPath -RepositoryPath $RepositoryPath -RepositoryName $RepositoryName
